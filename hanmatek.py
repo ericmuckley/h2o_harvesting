@@ -6,8 +6,10 @@ Created on: March 30, 2020
 Author: ericmuckley@gmail.com
 """
 
+import os
 import time
 import serial
+import pandas as pd
 from serial.tools import list_ports
 from pymodbus.client.sync import ModbusSerialClient
 
@@ -47,14 +49,22 @@ def close_ps(dev):
 def output_on(dev):
     """Turn on output of Hanmatek HM310P DC power supply."""
     try:
-        dev.write_register(address=int('1', 16), count=1, value=1, unit=1)
+        dev.write_register(
+            address=int('1', 16),
+            count=1,
+            value=1,
+            unit=1)
     except AttributeError:
         print("Could not turn output on.")
 
 def output_off(dev):
     """Turn off output of Hanmatek HM310P DC power supply."""
     try:
-        dev.write_register(address=int('1', 16), count=1, value=0, unit=1)
+        dev.write_register(
+            address=int('1', 16),
+            count=1,
+            value=0,
+            unit=1)
     except AttributeError:
         print("Could not turn output off.")
 
@@ -62,10 +72,11 @@ def set_voltage(dev, voltage):
     """Set voltage level of Hanmatek HM310P DC power supply."""
     try:
         voltage_int = int(round(float(voltage)*100, 2))
-        dev.write_register(address=int('30', 16),
-                           count=1,
-                           value=voltage_int,
-                           unit=1)
+        dev.write_register(
+            address=int('30', 16),
+            count=1,
+            value=voltage_int,
+            unit=1)
     except AttributeError:
         print("could not set voltage.")
 
@@ -73,10 +84,11 @@ def set_current(dev, current):
     """Set current level of Hanmatek HM310P DC power supply."""
     try:
         current_int = int(round(float(current)*1000, 2))
-        device.write_register(address=int('31', 16),
-                              count=1,
-                              value=current_int,
-                              unit=1)
+        device.write_register(
+            address=int('31', 16),
+            count=1,
+            value=current_int,
+            unit=1)
     except AttributeError:
         print("could not set current.")
 
@@ -87,7 +99,14 @@ def read_output_levels(dev):
     current = float(r.registers[1]) / 1000
     power = (float(r.registers[2]) + float(r.registers[3])) / 1000
     return (voltage, current, power)
-        
+
+
+
+starttime = time.strftime('%Y-%m-%d_%H-%M-%S')
+logpath = os.path.join(os.getcwd(), 'logs', starttime+'__log.csv')
+df = pd.DataFrame()
+df.to_csv(logpath, index=False)
+
 
 if __name__ == '__main__':
     print_ports()
