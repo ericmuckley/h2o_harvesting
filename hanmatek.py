@@ -2,14 +2,20 @@
 This module provides methods for controlling the
 Hanmatek HM310P DC power supply.
 
+Max output: 32V, 10 A
+
+Front panel status display:
+OVP: over voltage protection
+OCP: over current protection
+OPP: over power protection
+OTP: over temperature protection
+
 Created on: March 30, 2020
 Author: ericmuckley@gmail.com
 """
 
-import os
 import time
-import serial
-import pandas as pd
+import numpy as np
 from serial.tools import list_ports
 from pymodbus.client.sync import ModbusSerialClient
 
@@ -39,7 +45,8 @@ def open_ps(port):
 def close_ps(dev):
     """Close connection to Hanmatek HM310P DC power supply."""
     try:
-        dev.output_off()
+        set_output(dev)
+        output_off(dev)
         dev.close()
         print("HM310P closed.")
     except AttributeError:
@@ -68,8 +75,11 @@ def output_off(dev):
     except AttributeError:
         print("Could not turn output off.")
 
-def set_voltage(dev, voltage):
-    """Set voltage level of Hanmatek HM310P DC power supply."""
+def set_output(dev, voltage=0, current=0):
+    """Set voltage and current output levels of the Hanmatek
+    HM310P DC power supply. Output limits are enforced."""
+    voltage = np.clip(voltage, 0, 32)
+    current = np.clip(current, 0, 10)
     try:
         voltage_int = int(round(float(voltage)*100, 2))
         dev.write_register(
@@ -79,12 +89,9 @@ def set_voltage(dev, voltage):
             unit=1)
     except AttributeError:
         print("could not set voltage.")
-
-def set_current(dev, current):
-    """Set current level of Hanmatek HM310P DC power supply."""
     try:
         current_int = int(round(float(current)*1000, 2))
-        device.write_register(
+        dev.write_register(
             address=int('31', 16),
             count=1,
             value=current_int,
@@ -92,41 +99,28 @@ def set_current(dev, current):
     except AttributeError:
         print("could not set current.")
 
-def read_output_levels(dev):
+def read_output(dev):
     """Read output levelsof the Hanmatek HM310P DC power supply."""
-    r = device.read_holding_registers(address=16, count=4, unit=1)
+    r = dev.read_holding_registers(address=16, count=4, unit=1)
     voltage = float(r.registers[0]) / 100
     current = float(r.registers[1]) / 1000
     power = (float(r.registers[2]) + float(r.registers[3])) / 1000
     return (voltage, current, power)
 
 
-
-starttime = time.strftime('%Y-%m-%d_%H-%M-%S')
-logpath = os.path.join(os.getcwd(), 'logs', starttime+'__log.csv')
-df = pd.DataFrame()
-df.to_csv(logpath, index=False)
-
-
 if __name__ == '__main__':
     print_ports()
 
     ps = open_ps('COM3')
-    time.sleep(2)
     output_on(ps)
-    time.sleep(2)
+    
+    set_output(ps, voltage=3.4, current=4.22)
 
-    set_voltage(dev, 3)
-    set_current(dev, 1)
+    for i in range(5):
+        print(read_output(ps))
+        time.sleep(2)
 
-
-    time.sleep(2)
-    levels = read_outout_levels(dev)
-    print(levels)
-
-    time.sleep(1)
-
-
+    set_output(ps)
     output_off(ps)
     time.sleep(2)
     close_ps(ps)
