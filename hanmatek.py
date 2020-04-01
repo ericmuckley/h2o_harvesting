@@ -111,7 +111,7 @@ def read_output(dev):
 if __name__ == '__main__':
     print_ports()
 
-    ps = open_ps('COM3')
+    ps = open_ps('/dev/ttyUSB0')
     output_on(ps)
     
     set_output(ps, voltage=3.4, current=4.22)

@@ -11,8 +11,10 @@ import time
 import numpy as np
 import pandas as pd
 from serial.tools import list_ports
+import matplotlib.pyplot as plt
 from pymodbus.client.sync import ModbusSerialClient
 
+import bme280 as bme
 import hanmatek as hps
 
 
@@ -27,12 +29,15 @@ def create_data_log():
     logpath = os.path.join(logdir, starttime+'__log.csv')
     # create dataframe for storing data
     df = pd.DataFrame(
-        data=np.full((10000, 5), '', dtype=object),
+        data=np.full((10000, 8), '', dtype=object),
         columns=['date',
-                 'minutes_elapsed',
-                 'volts',
-                 'amps',
-                 'watts'])
+                 'time_min',
+                 'voltage_v',
+                 'current_amps',
+                 'power_watts',
+                 'temp_c',
+                 'press_atm',
+                 'rh_%'])
     return logpath, df
 
 
@@ -48,30 +53,46 @@ start_time = time.time()
 logpath, df = create_data_log()
 
 # open connection to power supply
-ps = hps.open_ps("COM3")
+ps = hps.open_ps('/dev/ttyUSB0')
 hps.output_on(ps)
 
+'''
 # specify power supply settings
 settings = np.column_stack(
     (np.linspace(0, 10, 10),
      np.full(10, 0.2)))
+'''
 
+# set power supply output
+hps.set_output(ps, voltage=12, current=4)
 
-for s in range(len(settings)):
+step_duration = 3
+minutes_elapsed = 0
 
-    # set power supply output
-    hps.set_output(ps, voltage=settings[s, 0], current=settings[s, 1])
+row_counter = 0
+while minutes_elapsed < step_duration:  
 
-    # read voltage, current, power output of power supply
-    output = hps.read_output(ps)
     # read current time
     current_time, minutes_elapsed = get_times(start_time)
-    # append data to log
-    df.iloc[s] = [current_time, minutes_elapsed, *output]
+    # read barometric data
+    bme_output = list(bme.read_all())
+    bme_output[2] /= 100
+    print(bme_output)
+    # read voltage, current, power output of power supply
+    ps_output = hps.read_output(ps)
 
-    time.sleep(3)
+    # append data to log
+    df.iloc[row_counter] = [current_time, minutes_elapsed, *ps_output, *bme_output]
+
+    row_counter += 1
+    time.sleep(2)
+    
 
 # close power supply
 hps.close_ps(ps)
 
 df.dropna().to_csv(logpath, index=False)
+
+
+plt.plot(pd.to_numeric(df['time_min']), pd.to_numeric(df['temp_c']))
+plt.show()
